@@ -13,12 +13,24 @@ namespace MCP.External.Accessors
 
         private async Task<List<LytxEvent>> GetEvents()
         {
-            using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(EventsStaticResource.EventsJson));
-            var jsonDoc = await JsonDocument.ParseAsync(stream);
-            var eventsElement = jsonDoc.RootElement.GetProperty("events").GetProperty("value");
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var events = JsonSerializer.Deserialize<List<LytxEvent>>(eventsElement.GetRawText(), options);
-            return events ?? new List<LytxEvent>();
+            var allEvents = new List<LytxEvent>();
+
+            // Load historical events (Apr 2025 – Mar 19, 2026)
+            using var historicalStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(EventsHistoricalStaticResource.EventsHistoricalJson));
+            var historicalDoc = await JsonDocument.ParseAsync(historicalStream);
+            var historicalElement = historicalDoc.RootElement.GetProperty("events").GetProperty("value");
+            var historicalEvents = JsonSerializer.Deserialize<List<LytxEvent>>(historicalElement.GetRawText(), options);
+            if (historicalEvents != null) allEvents.AddRange(historicalEvents);
+
+            // Load current events (Mar 20–26, 2026)
+            using var currentStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(EventsStaticResource.EventsJson));
+            var currentDoc = await JsonDocument.ParseAsync(currentStream);
+            var currentElement = currentDoc.RootElement.GetProperty("events").GetProperty("value");
+            var currentEvents = JsonSerializer.Deserialize<List<LytxEvent>>(currentElement.GetRawText(), options);
+            if (currentEvents != null) allEvents.AddRange(currentEvents);
+
+            return allEvents;
         }
 
         private async Task<string> GetEventsAsString(List<LytxEvent>? events)
