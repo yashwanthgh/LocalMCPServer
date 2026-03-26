@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"C:/Users/NareshKumarV/source/repos/LocalMCPServer/.claude/scripts/build-and-deploy.sh\"",
+            "timeout": 600,
+            "statusMessage": "Building & deploying LocalMCPServer to AWS ECS..."
+          }
+        ]
+      }
+    ]
+  }
+}
