@@ -27,10 +27,10 @@ namespace MCP.External.Accessors
             if (!apiResponse.IsSuccessStatusCode)
             {
                 // log error, status code, correlation id
-                return null;
+                return $"Error retrieving weather data for '{cityName}': {apiResponse.StatusCode}";
             }
 
-            return apiResponse.Content;
+            return apiResponse.Content ?? $"No weather data returned for '{cityName}'.";
         }
     }
 

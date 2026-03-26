@@ -15,7 +15,7 @@ namespace MCP.External.Accessors
         {
             using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(UsersStaticResource.UsersJson));
             var jsonDoc = await JsonDocument.ParseAsync(stream);
-            var usersElement = jsonDoc.RootElement.GetProperty("users");
+            var usersElement = jsonDoc.RootElement.GetProperty("users").GetProperty("value");
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var users = JsonSerializer.Deserialize<List<LytxUser>>(usersElement.GetRawText(), options);
             return users ?? new List<LytxUser>();

@@ -15,7 +15,7 @@ namespace MCP.External.Accessors
         {
             using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(EventsStaticResource.EventsJson));
             var jsonDoc = await JsonDocument.ParseAsync(stream);
-            var eventsElement = jsonDoc.RootElement.GetProperty("events");
+            var eventsElement = jsonDoc.RootElement.GetProperty("events").GetProperty("value");
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var events = JsonSerializer.Deserialize<List<LytxEvent>>(eventsElement.GetRawText(), options);
             return events ?? new List<LytxEvent>();
