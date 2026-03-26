@@ -9,7 +9,7 @@ COPY ChatApp/ChatApp.csproj ChatApp/
 RUN dotnet restore
 
 COPY . .
-RUN dotnet publish LocalMCP/LocalMCP.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish LocalMCP/LocalMCP.csproj -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
