@@ -1,6 +1,11 @@
+using System.Text;
 using System.Text.Json;
-using Anthropic;
-using Anthropic.Models.Messages;
+using System.Text.Json.Nodes;
+using Amazon;
+using Amazon.BedrockRuntime;
+using Amazon.BedrockRuntime.Model;
+using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
 using ModelContextProtocol.Client;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +18,9 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 const string McpServerUrl = "http://mcp-alb-241104355.us-east-1.elb.amazonaws.com/sse";
+const string BedrockModelId = "us.anthropic.claude-sonnet-4-6";
+const string AwsRegion = "us-east-1";
+const string AwsProfile = "105927215370_LytxHackathonUser";
 
 const string SystemPrompt =
     "You are a helpful assistant with access to three tools: " +
@@ -22,145 +30,197 @@ const string SystemPrompt =
     "Use these tools proactively whenever they can help answer the user's question. " +
     "Always be concise and friendly.";
 
+static AmazonBedrockRuntimeClient CreateBedrockClient()
+{
+    var chain = new CredentialProfileStoreChain();
+    if (chain.TryGetAWSCredentials(AwsProfile, out var credentials))
+        return new AmazonBedrockRuntimeClient(credentials, RegionEndpoint.GetBySystemName(AwsRegion));
+
+    // Fall back to default credential chain (env vars, IAM role, etc.)
+    return new AmazonBedrockRuntimeClient(RegionEndpoint.GetBySystemName(AwsRegion));
+}
+
+static async Task<JsonObject> InvokeClaudeAsync(
+    AmazonBedrockRuntimeClient bedrock,
+    string systemPrompt,
+    List<JsonObject> messages,
+    List<JsonObject>? tools = null)
+{
+    var body = new JsonObject
+    {
+        ["anthropic_version"] = "bedrock-2023-05-31",
+        ["max_tokens"] = 4096,
+        ["system"] = systemPrompt,
+        ["messages"] = new JsonArray(messages.Select(m => (JsonNode)m.DeepClone()).ToArray())
+    };
+
+    if (tools is { Count: > 0 })
+        body["tools"] = new JsonArray(tools.Select(t => (JsonNode)t.DeepClone()).ToArray());
+
+    var request = new InvokeModelRequest
+    {
+        ModelId = BedrockModelId,
+        ContentType = "application/json",
+        Accept = "application/json",
+        Body = new MemoryStream(Encoding.UTF8.GetBytes(body.ToJsonString()))
+    };
+
+    var response = await bedrock.InvokeModelAsync(request);
+    var json = await new StreamReader(response.Body).ReadToEndAsync();
+    return JsonNode.Parse(json)!.AsObject();
+}
+
 app.MapPost("/api/chat", async (ChatRequest req, ILoggerFactory loggerFactory) =>
 {
-    var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")
-        ?? throw new InvalidOperationException("ANTHROPIC_API_KEY environment variable is not set.");
-
-    var anthropic = new AnthropicClient { ApiKey = apiKey };
-
-    // Connect to the deployed MCP server
-    var transport = new SseClientTransport(
-        new SseClientTransportOptions { Endpoint = new Uri(McpServerUrl) },
-        loggerFactory);
-
-    await using var mcp = await McpClientFactory.CreateAsync(
-        transport,
-        new McpClientOptions { ClientInfo = new() { Name = "ChatApp", Version = "1.0.0" } },
-        loggerFactory);
-
-    // Fetch all tools from the MCP server
-    var mcpTools = await mcp.ListToolsAsync();
-
-    // Convert MCP tools → Anthropic Tool format
-    var anthropicTools = mcpTools.Select(t =>
+    try
     {
-        var props = new Dictionary<string, JsonElement>();
-        var required = new List<string>();
+        var logger = loggerFactory.CreateLogger("ChatApp");
 
-        if (t.JsonSchema.ValueKind == JsonValueKind.Object)
+        // Connect to MCP server
+        var transport = new SseClientTransport(
+            new SseClientTransportOptions { Endpoint = new Uri(McpServerUrl) },
+            loggerFactory);
+
+        await using var mcp = await McpClientFactory.CreateAsync(
+            transport,
+            new McpClientOptions { ClientInfo = new() { Name = "ChatApp", Version = "1.0.0" } },
+            loggerFactory);
+
+        // Fetch tools and build Bedrock tool schema
+        var mcpTools = await mcp.ListToolsAsync();
+        var bedrockTools = mcpTools.Select(t =>
         {
-            if (t.JsonSchema.TryGetProperty("properties", out var propsEl) &&
-                propsEl.ValueKind == JsonValueKind.Object)
+            var toolDef = new JsonObject
             {
-                foreach (var prop in propsEl.EnumerateObject())
-                    props[prop.Name] = prop.Value.Clone();
-            }
-            if (t.JsonSchema.TryGetProperty("required", out var reqEl) &&
-                reqEl.ValueKind == JsonValueKind.Array)
+                ["name"] = t.Name,
+                ["description"] = t.Description ?? t.Name
+            };
+
+            // Build input_schema from MCP JsonSchema
+            var inputSchema = new JsonObject { ["type"] = "object" };
+            var props = new JsonObject();
+            var required = new JsonArray();
+
+            if (t.JsonSchema.ValueKind == JsonValueKind.Object)
             {
-                required = reqEl.EnumerateArray()
-                    .Select(r => r.GetString() ?? string.Empty)
-                    .Where(s => s.Length > 0)
-                    .ToList();
+                if (t.JsonSchema.TryGetProperty("properties", out var propsEl) &&
+                    propsEl.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in propsEl.EnumerateObject())
+                        props[prop.Name] = JsonNode.Parse(prop.Value.GetRawText());
+                }
+                if (t.JsonSchema.TryGetProperty("required", out var reqEl) &&
+                    reqEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var r in reqEl.EnumerateArray())
+                        required.Add(r.GetString());
+                }
             }
+
+            inputSchema["properties"] = props;
+            if (required.Count > 0)
+                inputSchema["required"] = required;
+
+            toolDef["input_schema"] = inputSchema;
+            return toolDef;
+        }).ToList();
+
+        // Build message history
+        var messages = req.Messages.Select(m => new JsonObject
+        {
+            ["role"] = m.Role,
+            ["content"] = m.Content
+        }).ToList();
+
+        var toolCallLog = new List<ToolCallEntry>();
+        string finalText = string.Empty;
+
+        // Agentic loop
+        while (true)
+        {
+            var response = await InvokeClaudeAsync(CreateBedrockClient(), SystemPrompt, messages, bedrockTools);
+
+            var stopReason = response["stop_reason"]?.GetValue<string>();
+            var contentArray = response["content"]?.AsArray() ?? new JsonArray();
+
+            var assistantContent = new JsonArray();
+            var toolResults = new JsonArray();
+
+            foreach (var block in contentArray)
+            {
+                var blockObj = block!.AsObject();
+                var type = blockObj["type"]?.GetValue<string>();
+
+                if (type == "text")
+                {
+                    finalText = blockObj["text"]?.GetValue<string>() ?? string.Empty;
+                    assistantContent.Add(blockObj.DeepClone());
+                }
+                else if (type == "tool_use")
+                {
+                    assistantContent.Add(blockObj.DeepClone());
+
+                    var toolName = blockObj["name"]?.GetValue<string>() ?? string.Empty;
+                    var toolId = blockObj["id"]?.GetValue<string>() ?? string.Empty;
+                    var toolInput = blockObj["input"]?.AsObject() ?? new JsonObject();
+
+                    // Convert JsonObject to Dictionary for MCP
+                    var args = toolInput.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => (object?)(kvp.Value?.GetValue<object>() ?? kvp.Value?.ToString()));
+
+                    string toolResultText;
+                    try
+                    {
+                        var callResult = await mcp.CallToolAsync(toolName,
+                            args.ToDictionary(k => k.Key, k => k.Value));
+                        toolResultText = callResult.IsError == true
+                            ? "Tool returned an error."
+                            : string.Join("\n", callResult.Content
+                                .Where(c => c.Type == "text")
+                                .Select(c => (c as ModelContextProtocol.Protocol.TextContentBlock)?.Text ?? string.Empty));
+                    }
+                    catch (Exception ex)
+                    {
+                        toolResultText = $"Error calling {toolName}: {ex.Message}";
+                        logger.LogError(ex, "Tool call failed: {Tool}", toolName);
+                    }
+
+                    toolCallLog.Add(new ToolCallEntry(toolName, toolInput.ToJsonString(), toolResultText));
+
+                    toolResults.Add(new JsonObject
+                    {
+                        ["type"] = "tool_result",
+                        ["tool_use_id"] = toolId,
+                        ["content"] = toolResultText
+                    });
+                }
+            }
+
+            if (stopReason != "tool_use" || toolResults.Count == 0)
+                break;
+
+            // Feed results back
+            messages.Add(new JsonObject
+            {
+                ["role"] = "assistant",
+                ["content"] = assistantContent.DeepClone()
+            });
+            messages.Add(new JsonObject
+            {
+                ["role"] = "user",
+                ["content"] = toolResults.DeepClone()
+            });
         }
 
-        return new Tool
-        {
-            Name = t.Name,
-            Description = t.Description ?? t.Name,
-            InputSchema = new() { Properties = props, Required = required }
-        };
-    }).ToList();
-
-    // Build message history from the request
-    var messages = req.Messages
-        .Select(m => new MessageParam
-        {
-            Role = m.Role == "user" ? Role.User : Role.Assistant,
-            Content = m.Content
-        })
-        .ToList();
-
-    var toolCallLog = new List<ToolCallEntry>();
-    string finalText = string.Empty;
-
-    // Agentic tool loop — keep going until Claude stops requesting tools
-    while (true)
-    {
-        var response = await anthropic.Messages.Create(new MessageCreateParams
-        {
-            Model = Model.ClaudeOpus4_6,
-            MaxTokens = 4096,
-            System = SystemPrompt,
-            Tools = anthropicTools.Select(t => (ToolUnion)t).ToList(),
-            Messages = messages
-        });
-
-        var assistantBlocks = new List<ContentBlockParam>();
-        var toolResultBlocks = new List<ContentBlockParam>();
-
-        foreach (var block in response.Content)
-        {
-            if (block.TryPickText(out var textBlock))
-            {
-                assistantBlocks.Add(new TextBlockParam { Text = textBlock.Text });
-                finalText = textBlock.Text;
-            }
-            else if (block.TryPickToolUse(out var toolUse))
-            {
-                assistantBlocks.Add(new ToolUseBlockParam
-                {
-                    ID = toolUse.ID,
-                    Name = toolUse.Name,
-                    Input = toolUse.Input
-                });
-
-                // Convert Anthropic JsonElement args → MCP object args
-                var args = new Dictionary<string, object>(
-                    toolUse.Input.Select(kvp =>
-                        new KeyValuePair<string, object>(kvp.Key, kvp.Value)));
-
-                string toolResult;
-                try
-                {
-                    var callResult = await mcp.CallToolAsync(toolUse.Name, args);
-                    toolResult = callResult.IsError == true
-                        ? $"Tool returned an error."
-                        : string.Join("\n", callResult.Content
-                            .Where(c => c.Type == "text")
-                            .Select(c => (c as ModelContextProtocol.Protocol.TextContentBlock)?.Text ?? string.Empty));
-                }
-                catch (Exception ex)
-                {
-                    toolResult = $"Error calling {toolUse.Name}: {ex.Message}";
-                }
-
-                // Record for the UI
-                toolCallLog.Add(new ToolCallEntry(
-                    Tool: toolUse.Name,
-                    Input: toolUse.Input.ToString(),
-                    Output: toolResult));
-
-                toolResultBlocks.Add(new ToolResultBlockParam
-                {
-                    ToolUseID = toolUse.ID,
-                    Content = toolResult
-                });
-            }
-        }
-
-        // Stop if Claude is done or made no tool calls
-        if (response.StopReason != StopReason.ToolUse || toolResultBlocks.Count == 0)
-            break;
-
-        // Feed results back and continue
-        messages.Add(new MessageParam { Role = Role.Assistant, Content = assistantBlocks });
-        messages.Add(new MessageParam { Role = Role.User, Content = toolResultBlocks });
+        return Results.Ok(new ChatResponse(finalText, toolCallLog));
     }
-
-    return Results.Ok(new ChatResponse(finalText, toolCallLog));
+    catch (Exception ex)
+    {
+        var logger = loggerFactory.CreateLogger("ChatApp");
+        logger.LogError(ex, "Error in /api/chat");
+        return Results.Problem(detail: ex.ToString(), title: ex.Message, statusCode: 500);
+    }
 });
 
 // Endpoint to list available tools (used by the UI sidebar)
