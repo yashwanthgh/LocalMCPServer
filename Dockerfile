@@ -5,6 +5,7 @@ WORKDIR /src
 COPY LocalMCPServer.sln .
 COPY LocalMCP/LocalMCP.csproj LocalMCP/
 COPY MCP.External/MCP.External.csproj MCP.External/
+COPY ChatApp/ChatApp.csproj ChatApp/
 RUN dotnet restore
 
 COPY . .
