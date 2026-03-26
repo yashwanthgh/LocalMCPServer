@@ -1,4 +1,4 @@
-﻿using MCP.External.Data;
+using MCP.External.Data;
 using MCP.External.Entities;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace MCP.External.Accessors
 {
     [McpServerToolType]
-    public class ExternalBooksAccessor
+    public class BooksAccessor
     {
         #region Private Methods
 
@@ -42,7 +42,7 @@ namespace MCP.External.Accessors
             return await GetBooksAsString(await GetBooks());
         }
 
-        [McpServerTool, Description("Get books by category (genre)")]
+        [McpServerTool, Description("Get books by category")]
         public async Task<string> GetBooksByCategory(string category)
         {
             var books = await GetBooks();
@@ -50,8 +50,6 @@ namespace MCP.External.Accessors
             return await GetBooksAsString(filteredBooks);
         }
 
-
         #endregion
-
     }
 }

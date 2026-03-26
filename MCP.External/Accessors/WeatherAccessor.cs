@@ -1,24 +1,24 @@
-﻿using ModelContextProtocol.Server;
+using ModelContextProtocol.Server;
 using Refit;
 using System.ComponentModel;
 
 namespace MCP.External.Accessors
 {
     [McpServerToolType]
-    public class ExternalWeatherAccessor
+    public class WeatherAccessor
     {
         private readonly IWeatherService _weatherService;
         private readonly string apiKey = "cca5a86e94fe47bbbc3120440251809";
 
-        public ExternalWeatherAccessor(IWeatherService weatherService)
+        public WeatherAccessor(IWeatherService weatherService)
         {
             _weatherService = weatherService;
         }
 
-        [McpServerTool, Description("Get current weather information for a specified city.")]
-        public async Task<string> GetWeatherAsync(string cityName)
+        [McpServerTool, Description("Get current weather for a specified city")]
+        public async Task<string> GetWeather(string cityName)
         {
-           var apiResponse = await _weatherService.GetWeatherAsync(
+            var apiResponse = await _weatherService.GetWeatherAsync(
                 apiKey: apiKey,
                 city: cityName,
                 aqi: "no"

@@ -1,4 +1,4 @@
-﻿using MCP.External.Data;
+using MCP.External.Data;
 using MCP.External.Entities;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace MCP.External.Accessors
 {
     [McpServerToolType]
-    internal class CoachingSessionAccessor
+    public class CoachingAccessor
     {
         #region Private Methods
 
@@ -32,19 +32,18 @@ namespace MCP.External.Accessors
             return await reader.ReadToEndAsync();
         }
 
-
         #endregion
 
         #region Public Methods
 
-        [McpServerTool, Description("Get all Coaching Sessions")]
+        [McpServerTool, Description("Get all coaching sessions")]
         public async Task<string> GetAllCoachingSessions()
         {
             return await GetCoachingSessionsAsString(await GetCoachingSessions());
         }
 
-        [McpServerTool, Description("Get Coaching Sessions by coach or driver")]
-        public async Task<string> GetCoachingSessionsByCoach(string user)
+        [McpServerTool, Description("Get coaching sessions by coach or driver name")]
+        public async Task<string> GetCoachingSessionsByUser(string user)
         {
             var coachingSessions = await GetCoachingSessions();
             var filteredCoachingSessions = coachingSessions.Where(coachingSession =>
@@ -55,7 +54,7 @@ namespace MCP.External.Accessors
             return await GetCoachingSessionsAsString(filteredCoachingSessions);
         }
 
-        [McpServerTool, Description("Get Coaching Sessions by date")]
+        [McpServerTool, Description("Get coaching sessions by date")]
         public async Task<string> GetCoachingSessionsByDate(DateTime date)
         {
             var coachingSessions = await GetCoachingSessions();
@@ -63,11 +62,9 @@ namespace MCP.External.Accessors
             coachingSession.CoachingDate != DateTime.MinValue && coachingSession.CoachingDate == date
             ).ToList();
 
-
             return await GetCoachingSessionsAsString(filteredCoachingSessions);
         }
 
         #endregion
-
     }
 }

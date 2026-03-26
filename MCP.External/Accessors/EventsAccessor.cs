@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace MCP.External.Accessors
 {
     [McpServerToolType]
-    public class ExternalEventsAccessor
+    public class EventsAccessor
     {
         #region Private Methods
 
@@ -48,13 +48,13 @@ namespace MCP.External.Accessors
 
         #region Public Methods
 
-        [McpServerTool, Description("Get all Lytx events")]
+        [McpServerTool, Description("Get all events")]
         public async Task<string> GetAllEvents()
         {
             return await GetEventsAsString(await GetEvents());
         }
 
-        [McpServerTool, Description("Get Lytx events by driver name")]
+        [McpServerTool, Description("Get events by driver name")]
         public async Task<string> GetEventsByDriver(string driver)
         {
             var events = await GetEvents();
@@ -62,7 +62,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by status (e.g. FYI Notify, Face-To-Face, Resolved)")]
+        [McpServerTool, Description("Get events by status (e.g. FYI Notify, Face-To-Face, Resolved)")]
         public async Task<string> GetEventsByStatus(string status)
         {
             var events = await GetEvents();
@@ -70,7 +70,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by behavior (e.g. Smoking, Backing, Following Distance)")]
+        [McpServerTool, Description("Get events by behavior (e.g. Smoking, Backing, Following Distance)")]
         public async Task<string> GetEventsByBehavior(string behavior)
         {
             var events = await GetEvents();
@@ -78,15 +78,15 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get a Lytx event by its Event ID")]
-        public async Task<string> GetEventByEventId(string eventId)
+        [McpServerTool, Description("Get events by event ID")]
+        public async Task<string> GetEventsByEventId(string eventId)
         {
             var events = await GetEvents();
             var filteredEvents = events.Where(e => e.EventId != null && e.EventId.Equals(eventId, StringComparison.OrdinalIgnoreCase)).ToList();
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by employee ID")]
+        [McpServerTool, Description("Get events by employee ID")]
         public async Task<string> GetEventsByEmployeeId(string employeeId)
         {
             var events = await GetEvents();
@@ -94,7 +94,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by group (full or partial match, e.g. BCC - Smiths Station)")]
+        [McpServerTool, Description("Get events by group (full or partial match, e.g. BCC - Smiths Station)")]
         public async Task<string> GetEventsByGroup(string group)
         {
             var events = await GetEvents();
@@ -102,7 +102,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by vehicle ID")]
+        [McpServerTool, Description("Get events by vehicle ID")]
         public async Task<string> GetEventsByVehicle(string vehicle)
         {
             var events = await GetEvents();
@@ -110,7 +110,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by device ID")]
+        [McpServerTool, Description("Get events by device ID")]
         public async Task<string> GetEventsByDevice(string device)
         {
             var events = await GetEvents();
@@ -118,7 +118,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by date (format M/d/yy, e.g. 3/20/26)")]
+        [McpServerTool, Description("Get events by date (format M/d/yy, e.g. 3/20/26)")]
         public async Task<string> GetEventsByDate(string date)
         {
             var events = await GetEvents();
@@ -126,7 +126,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by trigger type (e.g. Braking, Cornering, Accelerating)")]
+        [McpServerTool, Description("Get events by trigger type (e.g. Braking, Cornering, Accelerating)")]
         public async Task<string> GetEventsByTrigger(string trigger)
         {
             var events = await GetEvents();
@@ -134,7 +134,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events by exact score value (e.g. 0, 2, 6, 8)")]
+        [McpServerTool, Description("Get events by exact score value (e.g. 0, 2, 6, 8)")]
         public async Task<string> GetEventsByScore(string score)
         {
             var events = await GetEvents();
@@ -142,7 +142,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events with a score greater than or equal to the given minimum score")]
+        [McpServerTool, Description("Get events with score greater than or equal to a minimum value")]
         public async Task<string> GetEventsByMinScore(int minScore)
         {
             var events = await GetEvents();
@@ -150,7 +150,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events that have no behaviors recorded")]
+        [McpServerTool, Description("Get events with no recorded behaviors")]
         public async Task<string> GetEventsWithNoBehaviors()
         {
             var events = await GetEvents();
@@ -158,7 +158,7 @@ namespace MCP.External.Accessors
             return await GetEventsAsString(filteredEvents);
         }
 
-        [McpServerTool, Description("Get Lytx events that have one or more behaviors recorded")]
+        [McpServerTool, Description("Get events with one or more recorded behaviors")]
         public async Task<string> GetEventsWithBehaviors()
         {
             var events = await GetEvents();

@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace MCP.External.Accessors
 {
     [McpServerToolType]
-    public class ExternalUsersAccessor
+    public class UsersAccessor
     {
         #region Private Methods
 
@@ -36,13 +36,13 @@ namespace MCP.External.Accessors
 
         #region Public Methods
 
-        [McpServerTool, Description("Get all Lytx users")]
+        [McpServerTool, Description("Get all users")]
         public async Task<string> GetAllUsers()
         {
             return await GetUsersAsString(await GetUsers());
         }
 
-        [McpServerTool, Description("Get Lytx users by status (e.g. Active)")]
+        [McpServerTool, Description("Get users by status (e.g. Active)")]
         public async Task<string> GetUsersByStatus(string status)
         {
             var users = await GetUsers();
@@ -50,7 +50,7 @@ namespace MCP.External.Accessors
             return await GetUsersAsString(filteredUsers);
         }
 
-        [McpServerTool, Description("Get Lytx users by login state (Enabled or Disabled)")]
+        [McpServerTool, Description("Get users by login state (Enabled or Disabled)")]
         public async Task<string> GetUsersByLoginState(string loginState)
         {
             var users = await GetUsers();
@@ -58,7 +58,7 @@ namespace MCP.External.Accessors
             return await GetUsersAsString(filteredUsers);
         }
 
-        [McpServerTool, Description("Get a Lytx user by their name (full or partial match)")]
+        [McpServerTool, Description("Get users by name (full or partial match)")]
         public async Task<string> GetUsersByName(string name)
         {
             var users = await GetUsers();
@@ -66,23 +66,23 @@ namespace MCP.External.Accessors
             return await GetUsersAsString(filteredUsers);
         }
 
-        [McpServerTool, Description("Get a Lytx user by their employee ID")]
-        public async Task<string> GetUserByEmployeeId(string employeeId)
+        [McpServerTool, Description("Get users by employee ID")]
+        public async Task<string> GetUsersByEmployeeId(string employeeId)
         {
             var users = await GetUsers();
             var filteredUsers = users.Where(u => u.EmployeeId != null && u.EmployeeId.Equals(employeeId, StringComparison.OrdinalIgnoreCase)).ToList();
             return await GetUsersAsString(filteredUsers);
         }
 
-        [McpServerTool, Description("Get a Lytx user by their username")]
-        public async Task<string> GetUserByUsername(string username)
+        [McpServerTool, Description("Get users by username")]
+        public async Task<string> GetUsersByUsername(string username)
         {
             var users = await GetUsers();
             var filteredUsers = users.Where(u => u.Username != null && u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)).ToList();
             return await GetUsersAsString(filteredUsers);
         }
 
-        [McpServerTool, Description("Get Lytx users whose role or group contains the given keyword (e.g. Driver, Coach, Fleet Read Only, or a group name like BC103)")]
+        [McpServerTool, Description("Get users by role or group keyword (e.g. Driver, Coach, Fleet Read Only, or a group name like BC103)")]
         public async Task<string> GetUsersByRole(string roleKeyword)
         {
             var users = await GetUsers();
@@ -90,7 +90,7 @@ namespace MCP.External.Accessors
             return await GetUsersAsString(filteredUsers);
         }
 
-        [McpServerTool, Description("Get Lytx users who have never logged in (empty Last Login Date)")]
+        [McpServerTool, Description("Get users who have never logged in")]
         public async Task<string> GetUsersNeverLoggedIn()
         {
             var users = await GetUsers();
@@ -98,7 +98,7 @@ namespace MCP.External.Accessors
             return await GetUsersAsString(filteredUsers);
         }
 
-        [McpServerTool, Description("Get Lytx users who have logged in at least once")]
+        [McpServerTool, Description("Get users who have logged in at least once")]
         public async Task<string> GetUsersWhoHaveLoggedIn()
         {
             var users = await GetUsers();
