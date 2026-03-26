@@ -4,11 +4,11 @@
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::105927215370:role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
       "name": "mcp-server",
-      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/local-mcp-server:latest",
+      "image": "105927215370.dkr.ecr.us-east-1.amazonaws.com/local-mcp-server:latest",
       "portMappings": [
         {
           "containerPort": 8080,
@@ -24,14 +24,14 @@
       "secrets": [
         {
           "name": "WEATHER_API_KEY",
-          "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:mcp-server/weather-api-key"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:105927215370:secret:mcp-server/weather-api-key-a7KpfO"
         }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/local-mcp-server",
-          "awslogs-region": "<REGION>",
+          "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }
       },

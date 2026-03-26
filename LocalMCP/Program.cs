@@ -26,6 +26,8 @@ namespace LocalMCP
 
             var app = builder.Build();
 
+            app.MapGet("/health", () => Results.Ok("Healthy"));
+
             app.MapMcp();
 
             await app.RunAsync();
