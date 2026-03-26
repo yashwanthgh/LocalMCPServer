@@ -13,7 +13,7 @@ namespace LocalMCP
 
             builder.Services.AddMcpServer()
                 .WithHttpTransport()
-                .WithToolsFromAssembly(typeof(ExternalBooksAccessor).Assembly);
+                .WithToolsFromAssembly(typeof(BooksAccessor).Assembly);
 
             builder.Services.AddRefitClient<IWeatherService>()
                 .ConfigureHttpClient(client =>
